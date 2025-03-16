@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +11,6 @@
             background: linear-gradient(135deg, #dfe7fd, #90e0ef);
             min-height: 100vh;
         }
-
         .voting-container {
             background: #f8f9fa;
             padding: 40px;
@@ -211,13 +209,13 @@
         .comment {
             padding: 10px;
             margin: 10px 0;
-            background: #e9ecef; /* Light gray for commenter */
+            background: #e9ecef;
             border-radius: 8px;
         }
 
         .comment.reply {
             margin-left: 20px;
-            background: #d4edda; /* Light green for admin replies */
+            background: #d4edda;
         }
 
         .reply-btn {
@@ -236,18 +234,15 @@
             <i class="fas fa-user-cog"></i> MALOSHA PRIVATE BOX 
         </button>
         <h1 id="poll-question"><i class="fas fa-poll"></i> Cast Your Vote</h1>
-        
         <div id="options-container">
             <div class="option" onclick="vote('Yes')">
                 <span><i class="fas fa-check-circle"></i> Yes</span>
                 <button class="vote-btn">Choose</button>
             </div>
-            
             <div class="option" onclick="vote('No')">
                 <span><i class="fas fa-times-circle"></i> No</span>
                 <button class="vote-btn">Choose</button>
             </div>
-            
             <div class="option" onclick="vote('Not Sure')">
                 <span><i class="fas fa-question-circle"></i> Not Sure</span>
                 <button class="vote-btn">Choose</button>
@@ -265,6 +260,7 @@
 
         <div class="comments-section">
             <h3><i class="fas fa-comments"></i> Comments</h3>
+            <input type="text" class="comment-input" id="userName" placeholder="Your Name">
             <textarea class="comment-input" id="newComment" placeholder="Leave your comment here"></textarea>
             <button onclick="addComment()">Submit Comment</button>
             <div id="comments-list"></div>
@@ -272,12 +268,12 @@
 
         <div class="admin-modal" id="adminModal">
             <div class="admin-form">
-                <h3><i class="fas fa-lock"></i> for malosha use only</h3>
+                <h3><i class="fas fa-lock"></i> FOR MALOSHA USE ONLY</h3>
                 <input type="password" id="adminPassword" placeholder="Enter Password">
                 <button onclick="verifyAdmin()">Login</button>
                 <button class="back-btn" onclick="hideAdminModal()">Back</button>
                 <div id="adminControls" style="display: none;">
-                    <h3><i class="fas fa-edit"></i> Create Question</h3>
+                    <h3><i class="fas fa-edit"></i> Edit/Create Question</h3>
                     <input type="text" id="newQuestion" placeholder="Write question here">
                     <select id="questionType">
                         <option value="short">Short Answer</option>
@@ -306,10 +302,11 @@
                         <option value="always">Always</option>
                         <option value="never">Never</option>
                     </select>
-                    <button onclick="updatePoll()">Update Question</button>
+                    <button onclick="updatePoll()">Save Changes</button>
                     <button onclick="showAdminResults()">View Results</button>
                     <button onclick="clearHistory()" style="background: #ff6b6b;">Clear History</button>
                     <button onclick="deleteResults()" style="background: #dc3545;">Delete Results</button>
+                    <button onclick="clearComments()" style="background: #ff6b6b;">Clear Comments</button>
                     <button class="back-btn" onclick="hideAdminModal()">Back</button>
                 </div>
             </div>
@@ -337,7 +334,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <script>
-        // Variables declared at the top
         const PASSWORD = "1340";
         let options = [];
         let votes = { 'Yes': 0, 'No': 0, 'Not Sure': 0 };
@@ -349,8 +345,9 @@
         let isAdmin = false;
         let comments = [];
         let currentQuestionType = 'multiple';
+        let currentQuestion = "Cast Your Vote";
+        let hasCommented = false;
 
-        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyD8h33YnC7Uh9vVdcwpC7W3cqCFvs0_CK0",
             authDomain: "d4v1d-378b4.firebaseapp.com",
@@ -362,11 +359,9 @@
             measurementId: "G-MQ6RD8WF5K"
         };
 
-        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // Real-time listeners
         db.ref('votes').on('value', (snapshot) => {
             votes = snapshot.val() || { 'Yes': 0, 'No': 0, 'Not Sure': 0 };
             updateOptionsState();
@@ -404,6 +399,7 @@
             comments = snapshot.val() || [];
             if (!Array.isArray(comments)) comments = [];
             comments = comments.map(comment => ({
+                name: comment.name || 'Anonymous',
                 text: comment.text || '',
                 replies: comment.replies || []
             }));
@@ -415,13 +411,26 @@
             updateUIForQuestionType();
         });
 
+        db.ref('currentQuestion').on('value', (snapshot) => {
+            const newQuestion = snapshot.val();
+            if (newQuestion) {
+                currentQuestion = newQuestion;
+                document.getElementById('poll-question').innerHTML = `<i class="fas fa-poll"></i> ${currentQuestion}`;
+            }
+        });
+
+        db.ref('hasCommented').on('value', (snapshot) => {
+            hasCommented = snapshot.val() === true;
+            renderComments();
+        });
+
         function vote(choice) {
             if (hasVoted) {
                 alert('You have already voted!');
                 return;
             }
             if (pollEndTime && Date.now() > pollEndTime) {
-                alert('Voting time has ended!');
+                alert('Currently, the admi is reviewing the submitted comments.');
                 return;
             }
             if (currentQuestionType !== 'comment') {
@@ -450,6 +459,10 @@
                 alert('No vote to undo!');
                 return;
             }
+            if (pollEndTime && Date.now() > pollEndTime) {
+                alert('Currently, the MALOSHA is reviewing the submitted comments.');
+                return;
+            }
             votes[lastVote]--;
             hasVoted = false;
             db.ref('votes').set(votes).catch(error => alert('Error: ' + error.message));
@@ -473,6 +486,10 @@
         }
 
         function showResults() {
+            if (pollEndTime && Date.now() > pollEndTime && !isAdmin) {
+                alert('Currently, the MALOSHA is reviewing the submitted comments.');
+                return;
+            }
             if (resultsVisibility === 'never' && !isAdmin) {
                 alert('Results cannot be viewed!');
                 return;
@@ -490,6 +507,9 @@
             document.getElementById('adminPassword').value = '';
             document.getElementById('adminControls').style.display = 'none';
             document.getElementById('adminPassword').style.display = 'block';
+            if (isAdmin) {
+                loadCurrentPollForEdit();
+            }
             isAdmin = false;
         }
 
@@ -506,8 +526,49 @@
                 document.getElementById('adminPassword').style.display = 'none';
                 document.getElementById('adminControls').style.display = 'block';
                 isAdmin = true;
+                loadCurrentPollForEdit();
             } else {
                 alert('Incorrect Password!');
+            }
+        }
+
+        function loadCurrentPollForEdit() {
+            document.getElementById('newQuestion').value = currentQuestion;
+            document.getElementById('questionType').value = currentQuestionType;
+            document.getElementById('resultsVisibility').value = resultsVisibility;
+            if (pollEndTime) {
+                const timeLeft = pollEndTime - Date.now();
+                if (timeLeft > 0) {
+                    let duration, unit;
+                    if (timeLeft >= 7 * 24 * 60 * 60 * 1000) {
+                        duration = Math.floor(timeLeft / (7 * 24 * 60 * 60 * 1000));
+                        unit = 'weeks';
+                    } else if (timeLeft >= 60 * 60 * 1000) {
+                        duration = Math.floor(timeLeft / (60 * 60 * 1000));
+                        unit = 'hours';
+                    } else if (timeLeft >= 60 * 1000) {
+                        duration = Math.floor(timeLeft / (60 * 1000));
+                        unit = 'minutes';
+                    } else {
+                        duration = Math.floor(timeLeft / 1000);
+                        unit = 'seconds';
+                    }
+                  document.getElementById('pollDuration').value = duration;
+                    document.getElementById('durationUnit').value = unit;
+                }
+            }
+            const optionsList = document.getElementById('options-list');
+            optionsList.innerHTML = '';
+            if (['multiple', 'checkbox', 'dropdown'].includes(currentQuestionType)) {
+                options = Object.keys(votes);
+                options.forEach(opt => {
+                    const optionInput = document.createElement('input');
+                    optionInput.type = 'text';
+                    optionInput.value = opt;
+                    optionInput.className = 'option-input';
+                    optionsList.appendChild(optionInput);
+                });
+                updateOptionsVisibility();
             }
         }
 
@@ -526,8 +587,6 @@
             optionsContainer.style.display = ['multiple', 'checkbox', 'dropdown'].includes(type) ? 'block' : 'none';
         }
 
-        document.getElementById('questionType').addEventListener('change', updateOptionsVisibility);
-
         function updatePoll() {
             const newQuestion = document.getElementById('newQuestion').value;
             const type = document.getElementById('questionType').value;
@@ -540,24 +599,29 @@
                 return;
             }
 
-            if (Object.keys(votes).length > 0 && currentQuestionType !== 'comment') {
+            // Only save to past polls if we're creating a new poll (not editing)
+            if (newQuestion !== currentQuestion && (Object.keys(votes).length > 0 || comments.length > 0)) {
                 pastPolls.push({
-                    question: document.getElementById('poll-question').textContent.replace(' Cast Your Vote', ''),
+                    question: currentQuestion,
                     results: { ...votes },
+                    comments: [...comments],
                     date: new Date().toLocaleString()
                 });
                 db.ref('pastPolls').set(pastPolls).catch(error => alert('Error: ' + error.message));
             }
 
+            currentQuestion = newQuestion;
+            db.ref('currentQuestion').set(currentQuestion).catch(error => alert('Error: ' + error.message));
+            document.getElementById('poll-question').innerHTML = `<i class="fas fa-poll"></i> ${currentQuestion}`;
+
             resultsVisibility = document.getElementById('resultsVisibility').value;
             db.ref('resultsVisibility').set(resultsVisibility);
-            document.getElementById('poll-question').innerHTML = `<i class="fas fa-poll"></i> ${newQuestion}`;
             db.ref('currentQuestionType').set(type);
             document.getElementById('adminModal').style.display = 'none';
 
             let durationMs = 0;
-            switch (unit) {
-              case 'seconds': durationMs = duration * 1000; break;
+            switch(unit) {
+                case 'seconds': durationMs = duration * 1000; break;
                 case 'minutes': durationMs = duration * 60 * 1000; break;
                 case 'hours': durationMs = duration * 60 * 60 * 1000; break;
                 case 'weeks': durationMs = duration * 7 * 24 * 60 * 60 * 1000; break;
@@ -572,24 +636,31 @@
                     alert('Add at least one option!');
                     return;
                 }
-                votes = {};
-                options.forEach(opt => votes[opt] = 0);
+                const newVotes = {};
+                options.forEach(opt => {
+                    newVotes[opt] = votes[opt] || 0; // Preserve existing vote counts if option exists
+                });
+                votes = newVotes;
                 container.innerHTML = options.map(opt => `
                     <div class="option" onclick="vote('${opt}')">
                         <span><i class="fas fa-check-circle"></i> ${opt}</span>
                         <button class="vote-btn">Choose</button>
                     </div>`).join('');
+                db.ref('votes').set(votes).catch(error => alert('Error: ' + error.message));
             } else if (type === 'comment') {
                 votes = {};
                 container.innerHTML = '';
+                db.ref('votes').set(votes).catch(error => alert('Error: ' + error.message));
             } else {
                 votes = {};
                 container.innerHTML = '';
+                db.ref('votes').set(votes).catch(error => alert('Error: ' + error.message));
             }
 
             hasVoted = false;
-            db.ref('votes').set(votes).catch(error => alert('Error: ' + error.message));
+            hasCommented = false;
             db.ref('hasVoted').set(false).catch(error => alert('Error: ' + error.message));
+            db.ref('hasCommented').set(false).catch(error => alert('Error: ' + error.message));
             options = [];
             document.getElementById('options-list').innerHTML = '';
             document.getElementById('newQuestion').value = '';
@@ -601,8 +672,9 @@
             if (!pollEndTime) return;
             const timeLeft = pollEndTime - Date.now();
             if (timeLeft <= 0) {
-                document.getElementById('timer').textContent = 'Voting Time Has Ended!';
+                document.getElementById('timer').textContent = 'Currently, the MALOSHA is reviewing the submitted comments.';
                 updateOptionsState();
+                renderComments();
             } else {
                 const endDate = new Date(pollEndTime).toLocaleString();
                 document.getElementById('timer').textContent = `Closes: ${endDate}`;
@@ -616,11 +688,24 @@
             for (const [choice, count] of Object.entries(votes)) {
                 tbody.innerHTML += `<tr><td>${choice}</td><td>${count}</td></tr>`;
             }
+            tbody.innerHTML += '<tr><th colspan="2">Current Comments</th></tr>';
+            comments.forEach(comment => {
+                tbody.innerHTML += `<tr><td>${comment.name}</td><td>${comment.text}</td></tr>`;
+                comment.replies.forEach(reply => {
+                    tbody.innerHTML += `<tr><td>${reply.name}</td><td>${reply.text}</td></tr>`;
+                });
+            });
             pastPolls.forEach((poll, index) => {
                 tbody.innerHTML += `<tr><th colspan="2">Poll ${index + 1}: ${poll.question} (${poll.date})</th></tr>`;
                 for (const [choice, count] of Object.entries(poll.results)) {
                     tbody.innerHTML += `<tr><td>${choice}</td><td>${count}</td></tr>`;
                 }
+                poll.comments.forEach(comment => {
+                    tbody.innerHTML += `<tr><td>${comment.name}</td><td>${comment.text}</td></tr>`;
+                    comment.replies.forEach(reply => {
+                        tbody.innerHTML += `<tr><td>${reply.name}</td><td>${reply.text}</td></tr>`;
+                    });
+                });
             });
             document.getElementById('resultsModal').style.display = 'flex';
         }
@@ -645,12 +730,31 @@
             }
         }
 
-        function addComment() {
-            const commentText = document.getElementById('newComment').value.trim();
-            if (commentText) {
-                comments.push({ text: commentText, replies: [] });
+        function clearComments() {
+            if (confirm('Are you sure you want to clear all current comments?')) {
+                comments = [];
                 db.ref('comments').set(comments).catch(error => alert('Error: ' + error.message));
+                hasCommented = false;
+                db.ref('hasCommented').set(false).catch(error => alert('Error: ' + error.message));
+                alert('Comments cleared!');
+            }
+        }
+
+        function addComment() {
+            if (pollEndTime && Date.now() > pollEndTime) {
+                alert('Currently, the MALOSHA is reviewing the submitted comments.');
+                return;
+            }
+            const commentText = document.getElementById('newComment').value.trim();
+            const userName = document.getElementById('userName').value.trim() || 'Anonymous';
+            if (commentText) {
+                comments.push({ name: userName, text: commentText, replies: [] });
+                db.ref('comments').set(comments).catch(error => alert('Error: ' + error.message));
+                hasCommented = true;
+                db.ref('hasCommented').set(true).catch(error => alert('Error: ' + error.message));
                 document.getElementById('newComment').value = '';
+                document.getElementById('userName').value = '';
+                renderComments();
             }
         }
 
@@ -659,30 +763,41 @@
                 alert('Only admin can reply to comments!');
                 return;
             }
+            if (pollEndTime && Date.now() > pollEndTime) {
+                alert('Currently, the MALOSHA is reviewing the submitted comments.');
+                return;
+            }
             const replyText = document.getElementById(`reply-input-${index}`).value.trim();
             if (replyText) {
                 comments[index].replies = comments[index].replies || [];
-                comments[index].replies.push(replyText);
+                comments[index].replies.push({ name: 'Admin', text: replyText });
                 db.ref('comments').set(comments).catch(error => alert('Error: ' + error.message));
                 document.getElementById(`reply-input-${index}`).value = '';
+                renderComments();
             }
         }
 
         function renderComments() {
             const commentsList = document.getElementById('comments-list');
             commentsList.innerHTML = '';
-            comments.forEach((comment, index) => {
-                const replies = comment.replies || [];
-                commentsList.innerHTML += `
-                    <div class="comment">
-                        <p><i class="fas fa-comment"></i> ${comment.text}</p>
-                        ${replies.map(reply => `<p class="comment reply"><i class="fas fa-reply"></i> ${reply}</p>`).join('')}
-                        ${isAdmin ? `
-                            <textarea class="comment-input" id="reply-input-${index}" placeholder="Reply to this comment"></textarea>
-                            <button class="reply-btn" onclick="addReply(${index})">Reply</button>
-                        ` : ''}
-                    </div>`;
-            });
+            if (pollEndTime && Date.now() > pollEndTime && !isAdmin) {
+                commentsList.innerHTML = '<p>Currently, the MALOSHA is reviewing the submitted comments.</p>';
+            } else if (hasCommented || isAdmin) {
+                comments.forEach((comment, index) => {
+                    const replies = comment.replies || [];
+                    commentsList.innerHTML += `
+                        <div class="comment">
+                            <p><i class="fas fa-comment"></i> ${comment.name}: ${comment.text}</p>
+                            ${replies.map(reply => `<p class="comment reply"><i class="fas fa-reply"></i> ${reply.name}: ${reply.text}</p>`).join('')}
+                            ${isAdmin && (!pollEndTime || Date.now() <= pollEndTime) ? `
+                                <textarea class="comment-input" id="reply-input-${index}" placeholder="Reply to this comment"></textarea>
+                                <button class="reply-btn" onclick="addReply(${index})">Reply</button>
+                            ` : ''}
+                        </div>`;
+                });
+            } else {
+                commentsList.innerHTML = '<p>Submit your comment to see others\' comments.</p>';
+            }
         }
 
         function updateUIForQuestionType() {
@@ -695,8 +810,10 @@
             updateOptionsState();
         }
 
+        document.getElementById('questionType').addEventListener('change', updateOptionsVisibility);
         updateOptionsState();
     </script>
 </body>
 </html>
 
+  
